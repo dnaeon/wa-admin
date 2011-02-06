@@ -1,185 +1,287 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 # 
-# wa-admin - a tool for managing webalizer log files
+# wa-admin - a tool for managing multiple webalizer log files
 # 
 
+BASENAME=/usr/bin/basename
 CAT=/bin/cat
 CP=/bin/cp
-BASENAME=/usr/bin/basename
 DATE=/bin/date
-CUT=/usr/bin/cut
 GREP=/usr/bin/grep
+JOT=/usr/bin/jot
 MKDIR=/bin/mkdir
+PRINTF=/usr/bin/printf
 RM=/bin/rm
-SORT=/usr/bin/sort
 SED=/usr/bin/sed
-TEE=/usr/bin/tee
 
 wa_admin_prefix=/usr/local
-wa_admin_etc=${wa_admin_prefix}/etc
-wa_admin_vhosts=${wa_admin_etc}/wa-admin/wa-admin.vhosts
+wa_admin_etc=${wa_admin_prefix}/etc/wa-admin
+wa_admin_vhosts=${wa_admin_etc}/wa-admin.vhosts
 wa_admin_version="0.1"
-wa_admin=$(${BASENAME} -- $0)
+wa_admin=$( ${BASENAME} $0 )
 
-# read configuration file if any
+# read configuration file if present
 [ -f "${wa_admin_etc}/wa-admin.conf" ] && . "${wa_admin_etc}/wa-admin.conf"
 
 # set default variable values
-: ${wa_admin_doc_root="/usr/local/www/wa-admin"}
-: ${wa_admin_conf_template="${wa_admin_etc}/wa-admin/webalizer.conf.tpl"}
-: ${wa_admin_html_header="${wa_admin_etc}/wa-admin/header.html"}
-: ${wa_admin_html_footer="${wa_admin_etc}/wa-admin/footer.html"}
-: ${webalizer_bin="/usr/local/bin/webalizer"}
+: ${wa_admin_doc_root="${wa_admin_prefix}/www/wa-admin"}
+: ${wa_admin_conf_template="${wa_admin_etc}/webalizer.conf.tpl"}
+: ${wa_admin_html_header="${wa_admin_etc}/header.html"}
+: ${wa_admin_html_footer="${wa_admin_etc}/footer.html"}
+: ${webalizer_bin="${wa_admin_prefix}/bin/webalizer"}
+: ${webalizer_hist="webalizer.hist"}
+: ${webalizer_dnscache="dnscache.db"}
 
 # usage messages
-wa_admin_usage="${wa_admin} -- version ${wa_admin_version}\nUsage: ${wa_admin} [list|add|delete|run|cron|create-index]"
-wa_admin_usage_list="Usage: ${wa_admin} list"
-wa_admin_usage_cron="Usage: ${wa_admin} cron"
-wa_admin_usage_create_index="Usage: ${wa_admin} create-index"
-wa_admin_usage_add="Usage: ${wa_admin} add <hostname> <log-file>"
-wa_admin_usage_delete="Usage: ${wa_admin} delete <hostname> <log-file>"
+wa_admin_usage_top="==>> ${wa_admin} -- version ${wa_admin_version}"
+wa_admin_usage="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} [list|add|delete|run|cron|create-index]\n==>> For more information of the commands run ${wa_admin} help [command]."
+wa_admin_usage_list="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} list\n==>> Lists the currently added to wa-admin log files."
+wa_admin_usage_run_cron="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} run|cron\n==>> Runs webalizer for all added to wa-admin log files. Suitable for running from cron(8)."
+wa_admin_usage_create_index="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} create-index\n==>> Re-creates the index.html file for all added to wa-admin vhosts."
+wa_admin_usage_add="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} add <hostname> <log-file>\n==>> Adds new log file to wa-admin."
+wa_admin_usage_delete="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} delete <hostname> <log-file>\n==>> Deletes the log file for the specified host."
 
 #
 # Function definitions
 #
 
 # 
-# errmsg
+# errmsg()
 # Prints an error message and exists
 #
 
-errmsg () { echo -e "$*" && exit 1; }
+function errmsg() { echo -e "$*" >&2 && exit 1 ; }
+
+# 
+# warnmsg()
+# Prints a warning message
+#
+
+function warnmsg() { echo -e "$*" >&2 ; } 
+
+# 
+# sanity_check()
+# Performs a sanity check for the required files/directories
+#
+
+function sanity_check() {
+   [ ! -d ${wa_admin_etc} ] && warnmsg "Configuration directory ${wa_admin_etc} does not exists."
+   [ ! -d ${wa_admin_doc_root} ] && warnmsg "Document Root directory ${wa_admin_doc_root} exists."
+   [ ! -f ${wa_admin_vhosts} ] && warnmsg "Vhosts file ${wa_admin_vhosts} does not exists."
+   [ ! -f ${wa_admin_conf_template} ] && warnmsg "Webalizer template ${wa_admin_conf_template} does not exists."
+   [ ! -f ${wa_admin_html_header} ] && warnmsg "HTML header file ${wa_admin_html_header} does not exists."
+   [ ! -f ${wa_admin_html_footer} ] && warnmsg "HTML footer file ${wa_admin_html_footer} does not exists."
+   [ ! -f ${webalizer_bin} ] && warnmsg "Webalizer executable was not found in ${webalizer_bin}."
+}
 
 #
-# wa-admin list
-# Lists the currently added to webalizer vhosts
+# wa_admin_list()
+# Lists the currently added to webalizer vhosts and log files
 #
 
-wa_admin_list () {
-   [ ! -f ${wa_admin_etc}/wa-admin/wa-admin.vhosts ] && errmsg "${wa_admin}: There is no ${wa_admin_etc}/wa-admin.vhosts file."
+function wa_admin_list() {
 
-   printf "%-30s %-30s\n" Hostname LogFile 
-   echo "------------------------------ ------------------------------" 
+   ${PRINTF} "%-30s %-30s\n" Hostname LogFile 
+   echo	     "------------------------------ ------------------------------" 
+
+   # read wa-admin.vhosts file
    while read vhost_entry; do 
-      vhost_name=$(echo ${vhost_entry} | ${CUT} -d '|' -f 1)
-	  vhost_log=$(echo ${vhost_entry} | ${CUT} -d '|' -f 2)
-      printf "%-30s %-30s\n" ${vhost_name} ${vhost_log}
+      vhost=( $(echo ${vhost_entry}) )
+      ${PRINTF} "%-30s %-30s\n" ${vhost[0]} ${vhost[1]}
    done < ${wa_admin_vhosts}
 }
 
 # 
-# wa-admin add
+# wa_admin_add()
 # Adds a new log file to be analyzed by webalizer
 #
 
-wa_admin_add () {
-   vhost_name=$1
-   vhost_log=$2
-   log_name=$(${BASENAME} ${vhost_log})
+function wa_admin_add() {
+   # get hostname and absolute logfile path
+   vhost=( $@ )
+   logfile=$( ${BASENAME} ${vhost[1]} )
 
    # check if the log file is already added to wa-admin
-   ${GREP} -x "${vhost_name}|${vhost_log}" ${wa_admin_vhosts} 1> /dev/null 2>&1
+   ${GREP} -x "${vhost[0]} ${vhost[1]}" ${wa_admin_vhosts} 1> /dev/null 2>&1
 
-   [ $? -eq 0 ] && errmsg "${wa_admin}: LogFile ${vhost_log} is already added for host ${vhost_name}."
+   [ $? -eq 0 ] && errmsg "==>> LogFile ${vhost[1]} is already added for host ${vhost[0]}."
 
-   [ ! -f ${vhost_log} ] && errmsg "${wa_admin}: LogFile ${vhost_log} does not exists."
+   [ ! -f ${vhost[1]} ] && errmsg "==>> LogFile ${vhost[1]} does not exists."
 
    # add the log file to wa-admin
-   vhost_conf_dir=${wa_admin_doc_root}/${vhost_name}/${log_name}
+   vhost_conf_dir=${wa_admin_doc_root}/${vhost[0]}/${logfile}
 
    ${MKDIR} -p ${vhost_conf_dir}
-   ${CP} ${wa_admin_conf_template} ${vhost_conf_dir}/webalizer.conf
-   ${SED} -i "" -e "s|@HOSTNAME@|${vhost_name}|" \
-	   -e "s|@LOGFILE@|${vhost_log}|" \
-	   -e "s|@OUTPUTDIR@|${vhost_conf_dir}|" \
-	   -e "s|@DNSCACHE@|${wa_admin_doc_root}/dns_cache.db|" ${vhost_conf_dir}/webalizer.conf
-   echo "${vhost_name}|${vhost_log}" >> ${wa_admin_vhosts}
 
-   echo "LogFile ${vhost_log} added for host ${vhost_name}."
-   wa_admin_create_index
+   ${CP} ${wa_admin_conf_template} ${vhost_conf_dir}/webalizer.conf
+   ${SED} -i "" -e "s|@HOSTNAME@|${vhost[0]}|" \
+	   -e "s|@LOGFILE@|${vhost[1]}|" \
+	   -e "s|@OUTPUTDIR@|${vhost_conf_dir}|" \
+	   -e "s|@DNSCACHE@|${wa_admin_doc_root}/${webalizer_dnscache}|" ${vhost_conf_dir}/webalizer.conf
+
+   echo "${vhost[0]} ${vhost[1]}" >> ${wa_admin_vhosts}
+
+   echo "==>> LogFile ${logfile} added for host ${vhost[0]}."
+   
+   # create the newly added graphs and re-create the index.html file
+   wa_admin_run_cron
 }
    
 # 
-# wa-admin delete
+# wa_admin_delete()
 # Deletes a log entry from the wa-admin configuration
 #
 
-wa_admin_delete () {
-   vhost_name=$1
-   vhost_log=$2
-   log_name=$(${BASENAME} ${vhost_log})
+function wa_admin_delete() {
+
+   # get the hostname and absolute logfile path
+   vhost=( $@ )
+   logfile=$( ${BASENAME} ${vhost[1]} )
    
-   vhost_line=$(${GREP} -nx "${vhost_name}|${vhost_log}" ${wa_admin_vhosts} | ${CUT} -d ':' -f 1)
+   vhost_entry=$( ${GREP} -m 1 -x "${vhost[0]} ${vhost[1]}" ${wa_admin_vhosts} )
  
-   [ $? -ne 0 -o -z "${vhost_line}" ] && errmsg "${wa_admin}: LogFile ${vhost_log} for host ${vhost_name} is not added."
+   [ $? -ne 0 -o -z "${vhost_entry}" ] && errmsg "==>> LogFile ${logfile} for host ${vhost[0]} was not found."
 
-   vhost_conf_dir=${wa_admin_doc_root}/${vhost_name}/${log_name}
-
-   ${SED} -i "" "${vhost_line}d" ${wa_admin_vhosts}
+   # remove the vhost directory from wa-admin
+   vhost_conf_dir=${wa_admin_doc_root}/${vhost[0]}/${logfile}
    ${RM} -rf ${vhost_conf_dir}
 
-   echo "LogFile ${vhost_log} for host ${vhost_name} was removed."
-   wa_admin_create_index
+   ${SED} -i "" -e "s|^${vhost_entry}$||" -e '/^$/d' ${wa_admin_vhosts}
+
+   echo "==>> LogFile ${logfile} removed for host ${vhost[0]}."
+
+   # update the graphs and re-create the index.html file
+   wa_admin_run_cron
 }
 
 # 
-# wa-admin create-index
+# wa_admin_create_index
 # Creates index.html file for the added to wa-admin vhosts
 #
 
-wa_admin_create_index () {
+function wa_admin_create_index() {
  
-   ${SORT} -u ${wa_admin_vhosts} | ${TEE} > ${wa_admin_vhosts}	
    ${CAT} ${wa_admin_html_header} > ${wa_admin_doc_root}/index.html
 
-   echo "<strong>Index generated on $(${DATE} "+%a %Y-%m-%d %H:%m %Z")</strong>" >> ${wa_admin_doc_root}/index.html
-
    ${CAT} >> ${wa_admin_doc_root}/index.html << __EOF__
+<strong>General overview of all Apache log files.</strong><br />
+<strong>Index generated on $( ${DATE} "+%a %Y-%m-%d %H:%m %Z" )</strong>
 <hr />
 <center>
 <table>
   <tr>
 	<td align="center"><strong>Hostname</strong></td>
 	<td align="center"><strong>LogFile</strong></td>
+	<td align="center"><strong>Avg Daily Visits</strong></td>
+	<td align="center"><strong>Avg Daily Hits</strong></td>
+	<td align="center"><strong>Monthly Visits</strong></td>
+	<td align="center"><strong>Monthly Hits</strong></td>
   </tr>
 __EOF__
 
-   while read vhost_entry; do
-      vhost_name=$(echo ${vhost_entry} | ${CUT} -d '|' -f 1)
-      vhost_log=$(echo ${vhost_entry} | ${CUT} -d '|' -f 2)
-	  log_name=$(${BASENAME} ${vhost_log})
+   # initialize the total_stats array
+   for i in $( ${JOT} - 1 10 ); do
+      total_stats[${i}]=0
+   done
 
-      echo "<tr><td><strong>${vhost_name}</strong></td>" >> ${wa_admin_doc_root}/index.html
-	  echo "<td><a href="${vhost_name}/${log_name}">${log_name}</a></td></tr>" >> ${wa_admin_doc_root}/index.html
+   while read vhost_entry; do
+      # get the vhost hostname and logfile
+      vhost=( $(echo ${vhost_entry}) )
+      logfile=$( ${BASENAME} ${vhost[1]} )
+
+      # add the hostname and log file to the index.html file
+      ${CAT} >> ${wa_admin_doc_root}/index.html << __EOF__
+<tr>
+   <td><strong>${vhost[0]}</strong></td>
+   <td><a href="${vhost[0]}/${logfile}">${logfile}</a></td>
+__EOF__
+
+      vhost_conf_dir=${wa_admin_doc_root}/${vhost[0]}/${logfile}
+
+      # get the current month and year
+      month_year=$( ${PRINTF} "%d %d" $( ${DATE} "+%m %Y" ) )
+
+      # get the monthly stats from the history file of webalizer
+      # monthly_stats[0] == month
+      # monthly_stats[1] == year
+      # monthly_stats[2] == monthly hits
+      # monthly_stats[3] == monthly files
+      # monthly_stats[4] == monthly sites
+      # monthly_stats[5] == monthly kbytes
+      # monthly_stats[6] == logfile first day
+      # monthly_stats[7] == logfile last day
+      # monthly_stats[8] == monthly pages
+      # monthly_stats[9] == monthy visits
+      monthly_stats=( $( ${GREP} -m 1 "${month_year}" ${vhost_conf_dir}/${webalizer_hist} ) )
+
+      # if we do not have stats for this month, zero the monthly stats array
+      [ ${#monthly_stats[@]} -eq 0 ] && monthly_stats=( 0 0 0 0 0 0 0 0 0 0 )
+
+      # get the total stats
+      for i in $( ${JOT} - 0 9 ); do
+	 let "total_stats[${i}] += ${monthly_stats[${i}]}"
+      done
+
+      # create the monthly stats hyper-link
+      if [ ${monthly_stats[2]} -eq 0 ]
+      then
+	 monthly_stats_link="href=''"
+      else
+	 monthly_stats_link="href='${vhost[0]}/${logfile}/usage_$( ${DATE} +%Y%m ).html'"
+      fi
+
+      # add the monthly and daily stats to the index.html file
+      ${CAT} >> ${wa_admin_doc_root}/index.html << __EOF__
+   <td><strong><a ${monthly_stats_link}>$(( ${monthly_stats[9]} / (${monthly_stats[7]} - ${monthly_stats[6]} + 1) ))</a></strong></td>
+   <td><strong><a ${monthly_stats_link}>$(( ${monthly_stats[2]} / (${monthly_stats[7]} - ${monthly_stats[6]} + 1) ))</a></strong></td>
+   <td><strong><a ${monthly_stats_link}>${monthly_stats[9]}</a></strong></td>
+   <td><strong><a ${monthly_stats_link}>${monthly_stats[2]}</a></strong></td>
+</tr>
+__EOF__
    done < ${wa_admin_vhosts}
 
+   # add the totals at the end of the table
    ${CAT} >> ${wa_admin_doc_root}/index.html << __EOF__
+<tr>
+   <td><strong>Totals</td>
+   <td></td>
+   <td></td>
+   <td></td>
+   <td><strong>${total_stats[9]}</strong></td>
+   <td><strong>${total_stats[2]}</strong></td>
+</tr>
 </table>
 </center>
 <hr />
-<strong>Index generated by wa-admin</strong>
+<strong>Index generated by ${wa_admin} -- version ${wa_admin_version}</strong>
 __EOF__
 
    ${CAT} ${wa_admin_html_footer} >> ${wa_admin_doc_root}/index.html
 
-   echo "Index file was created in ${wa_admin_doc_root}/index.html"
+   echo "==>> Index file was created in ${wa_admin_doc_root}/index.html"
 }
 
 # 
-# wa-admin cron
-# Suitable for executing webalizer(1) from cron(8)
+# wa_admin_run_cron
+# Executes webalizer for each vhost
+# Suitable for executing the function from cron(8) 
+# in order to update all webalizer log files.
 #
 
-wa_admin_cron () {
-   [ ! -f ${wa_admin_etc}/wa-admin/wa-admin.vhosts ] && errmsg "${wa_admin}: There is no ${wa_admin_etc}/wa-admin.vhosts file."
+function wa_admin_run_cron() {
+   
+   echo "==>> Running wa-admin for all vhosts."
 
    while read vhost_entry; do
-      vhost_name=$(echo ${vhost_entry} | ${CUT} -d '|' -f 1)
-	  vhost_log=$(${BASENAME} $(echo ${vhost_entry} | ${CUT} -d '|' -f 2))
+      vhost=( ${vhost_entry} )
 
-      ${webalizer_bin} -c ${wa_admin_doc_root}/${vhost_name}/${vhost_log}/webalizer.conf
-   done < ${wa_admin_etc}/wa-admin/wa-admin.vhosts
+      # execute webalizer for the vhost
+      ${webalizer_bin} -c ${wa_admin_doc_root}/${vhost[0]}/$(${BASENAME} ${vhost[1]})/webalizer.conf
+   done < ${wa_admin_vhosts}
+
+   # generate the index.html file
+   wa_admin_create_index
 }
 
 # 
@@ -190,7 +292,10 @@ wa_admin_cron () {
 # main
 #
 
-[ "$#" -eq 0 ] && errmsg ${wa_admin_usage}
+[ $# -eq 0 ] && errmsg ${wa_admin_usage}
+
+# perform a sanity check
+sanity_check
 
 case "$1" in 
    list)
@@ -199,14 +304,37 @@ case "$1" in
    create-index)
       [ $# -eq 1 ] && wa_admin_create_index || errmsg ${wa_admin_usage_create_index}
       ;;
-   cron|run)
-      [ $# -eq 1 ] && wa_admin_cron || errmsg ${wa_admin_usage_cron}
+   run|cron)
+      [ $# -eq 1 ] && wa_admin_run_cron || errmsg ${wa_admin_usage_run_cron}
       ;;
    add)
       [ $# -eq 3 ] && wa_admin_add $2 $3 || errmsg ${wa_admin_usage_add}
       ;;
    delete)
       [ $# -eq 3 ] && wa_admin_delete $2 $3 || errmsg ${wa_admin_usage_delete}
+      ;;
+   help) 
+      [ $# -ne 2 ] && errmsg ${wa_admin_usage}
+      case "$2" in
+	 list) 
+	    errmsg ${wa_admin_usage_list}
+	    ;;
+	 create-index) 
+	    errmsg ${wa_admin_usage_create_index}
+	    ;;
+	 run|cron)
+	    errmsg ${wa_admin_usage_run_cron}
+	    ;;
+	 add)
+	    errmsg ${wa_admin_usage_add}
+	    ;;
+	 delete)
+	    errmsg ${wa_admin_usage_delete}
+	    ;;
+	 *)
+	    errmsg ${wa_admin_usage}
+	    ;;
+      esac
       ;;
    *)
       errmsg ${wa_admin_usage}
