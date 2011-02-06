@@ -166,7 +166,7 @@ function wa_admin_create_index() {
 
    ${CAT} >> ${wa_admin_doc_root}/index.html << __EOF__
 <strong>General overview of all Apache log files.</strong><br />
-<strong>Index generated on $( ${DATE} "+%a %Y-%m-%d %H:%m %Z" )</strong>
+<strong>Index generated on $( ${DATE} "+%a %Y-%m-%d %H:%M %Z" )</strong>
 <hr />
 <center>
 <table>
