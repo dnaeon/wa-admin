@@ -6,6 +6,7 @@
 
 BASENAME=/usr/bin/basename
 CAT=/bin/cat
+CUT=/usr/bin/cut
 CP=/bin/cp
 DATE=/bin/date
 GREP=/usr/bin/grep
@@ -14,6 +15,7 @@ MKDIR=/bin/mkdir
 PRINTF=/usr/bin/printf
 RM=/bin/rm
 SED=/usr/bin/sed
+SORT=/usr/bin/sort
 
 wa_admin_prefix=/usr/local
 wa_admin_etc=${wa_admin_prefix}/etc/wa-admin
@@ -35,7 +37,7 @@ wa_admin=$( ${BASENAME} $0 )
 
 # usage messages
 wa_admin_usage_top="==>> ${wa_admin} -- version ${wa_admin_version}"
-wa_admin_usage="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} [list|add|delete|run|cron|create-index]\n==>> For more information of the commands run ${wa_admin} help [command]."
+wa_admin_usage="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} [list|add|delete|run-cron|create-index]\n==>> For more information of the commands run ${wa_admin} help [command]."
 wa_admin_usage_list="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} list\n==>> Lists the currently added to wa-admin log files."
 wa_admin_usage_run_cron="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} run|cron\n==>> Runs webalizer for all added to wa-admin log files. Suitable for running from cron(8)."
 wa_admin_usage_create_index="${wa_admin_usage_top}\n==>> Usage: ${wa_admin} create-index\n==>> Re-creates the index.html file for all added to wa-admin vhosts."
@@ -66,13 +68,13 @@ function warnmsg() { echo -e "$*" >&2 ; }
 #
 
 function sanity_check() {
-   [ ! -d ${wa_admin_etc} ] && warnmsg "Configuration directory ${wa_admin_etc} does not exists."
-   [ ! -d ${wa_admin_doc_root} ] && warnmsg "Document Root directory ${wa_admin_doc_root} exists."
-   [ ! -f ${wa_admin_vhosts} ] && warnmsg "Vhosts file ${wa_admin_vhosts} does not exists."
-   [ ! -f ${wa_admin_conf_template} ] && warnmsg "Webalizer template ${wa_admin_conf_template} does not exists."
-   [ ! -f ${wa_admin_html_header} ] && warnmsg "HTML header file ${wa_admin_html_header} does not exists."
-   [ ! -f ${wa_admin_html_footer} ] && warnmsg "HTML footer file ${wa_admin_html_footer} does not exists."
-   [ ! -f ${webalizer_bin} ] && warnmsg "Webalizer executable was not found in ${webalizer_bin}."
+   [ ! -d ${wa_admin_etc} ] && warnmsg "==>> Configuration directory ${wa_admin_etc} does not exists."
+   [ ! -d ${wa_admin_doc_root} ] && warnmsg "==>> Document Root directory ${wa_admin_doc_root} exists."
+   [ ! -f ${wa_admin_vhosts} ] && warnmsg "==>> Vhosts file ${wa_admin_vhosts} does not exists."
+   [ ! -f ${wa_admin_conf_template} ] && warnmsg "==>> Webalizer template ${wa_admin_conf_template} does not exists."
+   [ ! -f ${wa_admin_html_header} ] && warnmsg "==>> HTML header file ${wa_admin_html_header} does not exists."
+   [ ! -f ${wa_admin_html_footer} ] && warnmsg "==>> HTML footer file ${wa_admin_html_footer} does not exists."
+   [ ! -f ${webalizer_bin} ] && warnmsg "==>> Webalizer executable was not found in ${webalizer_bin}."
 }
 
 #
@@ -82,13 +84,13 @@ function sanity_check() {
 
 function wa_admin_list() {
 
-   ${PRINTF} "%-30s %-30s\n" Hostname LogFile 
-   echo	     "------------------------------ ------------------------------" 
+   ${PRINTF} "%-35s %-35s %-11s\n" Hostname LogFile MonthlyHits
+   echo	     "----------------------------------- ----------------------------------- -----------" 
 
    # read wa-admin.vhosts file
    while read vhost_entry; do 
       vhost=( $(echo ${vhost_entry}) )
-      ${PRINTF} "%-30s %-30s\n" ${vhost[0]} ${vhost[1]}
+      ${PRINTF} "%-35s %-35s %-11s\n" ${vhost[0]} ${vhost[1]} ${vhost[2]}
    done < ${wa_admin_vhosts}
 }
 
@@ -103,7 +105,7 @@ function wa_admin_add() {
    logfile=$( ${BASENAME} ${vhost[1]} )
 
    # check if the log file is already added to wa-admin
-   ${GREP} -x "${vhost[0]} ${vhost[1]}" ${wa_admin_vhosts} 1> /dev/null 2>&1
+   ${GREP} -m 1 "${vhost[0]} ${vhost[1]}" ${wa_admin_vhosts} 1> /dev/null 2>&1
 
    [ $? -eq 0 ] && errmsg "==>> LogFile ${vhost[1]} is already added for host ${vhost[0]}."
 
@@ -120,17 +122,14 @@ function wa_admin_add() {
 	   -e "s|@OUTPUTDIR@|${vhost_conf_dir}|" \
 	   -e "s|@DNSCACHE@|${wa_admin_doc_root}/${webalizer_dnscache}|" ${vhost_conf_dir}/webalizer.conf
 
-   echo "${vhost[0]} ${vhost[1]}" >> ${wa_admin_vhosts}
+   echo "${vhost[0]} ${vhost[1]} 0" >> ${wa_admin_vhosts}
 
    echo "==>> LogFile ${logfile} added for host ${vhost[0]}."
-   
-   # create the newly added graphs and re-create the index.html file
-   wa_admin_run_cron
 }
    
 # 
 # wa_admin_delete()
-# Deletes a log entry from the wa-admin configuration
+# Deletes a vhost entry from the wa-admin configuration
 #
 
 function wa_admin_delete() {
@@ -139,14 +138,14 @@ function wa_admin_delete() {
    vhost=( $@ )
    logfile=$( ${BASENAME} ${vhost[1]} )
    
-   vhost_entry=$( ${GREP} -m 1 -x "${vhost[0]} ${vhost[1]}" ${wa_admin_vhosts} )
+   vhost_entry=$( ${GREP} -m 1 "${vhost[0]} ${vhost[1]}" ${wa_admin_vhosts} )
  
    [ $? -ne 0 -o -z "${vhost_entry}" ] && errmsg "==>> LogFile ${logfile} for host ${vhost[0]} was not found."
 
    # remove the vhost directory from wa-admin
    vhost_conf_dir=${wa_admin_doc_root}/${vhost[0]}/${logfile}
-   ${RM} -rf ${vhost_conf_dir}
 
+   ${RM} -rf ${vhost_conf_dir}
    ${SED} -i "" -e "s|^${vhost_entry}$||" -e '/^$/d' ${wa_admin_vhosts}
 
    echo "==>> LogFile ${logfile} removed for host ${vhost[0]}."
@@ -156,11 +155,58 @@ function wa_admin_delete() {
 }
 
 # 
-# wa_admin_create_index
+# update_monthly_hits
+# Updates the monthly hits for each vhost from wa-admin.vhosts file
+#
+
+function update_monthly_hits() {
+
+   while read vhost_entry; do
+      # get the vhost information
+      vhost=( $(echo ${vhost_entry}) )
+      logfile=$( ${BASENAME} ${vhost[1]} )
+
+      vhost_conf_dir=${wa_admin_doc_root}/${vhost[0]}/${logfile}
+
+      # get the current month and year
+      month_year=$( ${PRINTF} "%d %d" $( ${DATE} "+%m %Y" ) )
+
+      # get the monthly stats from the history file of webalizer
+      # monthly_stats[0] == month
+      # monthly_stats[1] == year
+      # monthly_stats[2] == monthly hits
+      # monthly_stats[3] == monthly files
+      # monthly_stats[4] == monthly sites
+      # monthly_stats[5] == monthly kbytes
+      # monthly_stats[6] == logfile first day
+      # monthly_stats[7] == logfile last day
+      # monthly_stats[8] == monthly pages
+      # monthly_stats[9] == monthy visits
+
+      # we only take the monthly hits, and use that later for sorting
+      monthly_hits=( $( ${GREP} -m 1 "${month_year}" ${vhost_conf_dir}/${webalizer_hist} | ${CUT} -d ' ' -f 3 ) )
+
+      # if we do not have stats for this month, zero the monthly_hits variable
+      [ -z "${monthly_hits}" ] && monthly_hits=0
+
+      # update the wa-admin.vhosts file with the new monthly hits
+      # ${vhost[2]} stores the old monthly hits
+      ${SED} -i "" -e "s|^${vhost[0]} ${vhost[1]} ${vhost[2]}|${vhost[0]} ${vhost[1]} ${monthly_hits}|" ${wa_admin_vhosts}
+   done < ${wa_admin_vhosts}
+
+   # sort the updated wa-admin.vhosts file by monthly hits
+   ${SORT} -nrk 3 -o ${wa_admin_vhosts} ${wa_admin_vhosts}
+}
+
+# 
+# wa_admin_create_index()
 # Creates index.html file for the added to wa-admin vhosts
 #
 
 function wa_admin_create_index() {
+   
+   # update the monthly hits for each vhost
+   update_monthly_hits
  
    ${CAT} ${wa_admin_html_header} > ${wa_admin_doc_root}/index.html
 
@@ -170,14 +216,15 @@ function wa_admin_create_index() {
 <hr />
 <center>
 <table>
-  <tr>
-	<td align="center"><strong>Hostname</strong></td>
-	<td align="center"><strong>LogFile</strong></td>
-	<td align="center"><strong>Avg Daily Visits</strong></td>
-	<td align="center"><strong>Avg Daily Hits</strong></td>
-	<td align="center"><strong>Monthly Visits</strong></td>
-	<td align="center"><strong>Monthly Hits</strong></td>
-  </tr>
+   <tr>
+	 <td align="center"><strong>Rank #</strong></td>   	 
+	 <td align="center"><strong>Hostname</strong></td>
+	 <td align="center"><strong>LogFile</strong></td>
+	 <td align="center"><strong>Avg Daily Visits</strong></td>
+	 <td align="center"><strong>Avg Daily Hits</strong></td>
+	 <td align="center"><strong>Monthly Visits</strong></td>
+	 <td align="center"><strong>Monthly Hits</strong></td>
+   </tr>
 __EOF__
 
    # initialize the total_stats array
@@ -185,14 +232,20 @@ __EOF__
       total_stats[${i}]=0
    done
 
+   # vhost monthly rank by hits
+   rank=0
+
    while read vhost_entry; do
-      # get the vhost hostname and logfile
+      let rank++
+
+      # get the vhost information
       vhost=( $(echo ${vhost_entry}) )
       logfile=$( ${BASENAME} ${vhost[1]} )
 
-      # add the hostname and log file to the index.html file
+      # add the rank, hostname and log file to the index.html file
       ${CAT} >> ${wa_admin_doc_root}/index.html << __EOF__
 <tr>
+   <td><strong>${rank}</strong></td>
    <td><strong>${vhost[0]}</strong></td>
    <td><a href="${vhost[0]}/${logfile}">${logfile}</a></td>
 __EOF__
@@ -244,7 +297,8 @@ __EOF__
    # add the totals at the end of the table
    ${CAT} >> ${wa_admin_doc_root}/index.html << __EOF__
 <tr>
-   <td><strong>Totals</td>
+   <td><strong>Totals</strong></td>
+   <td></td>
    <td></td>
    <td></td>
    <td></td>
@@ -304,7 +358,7 @@ case "$1" in
    create-index)
       [ $# -eq 1 ] && wa_admin_create_index || errmsg ${wa_admin_usage_create_index}
       ;;
-   run|cron)
+   run-cron)
       [ $# -eq 1 ] && wa_admin_run_cron || errmsg ${wa_admin_usage_run_cron}
       ;;
    add)
@@ -322,7 +376,7 @@ case "$1" in
 	 create-index) 
 	    errmsg ${wa_admin_usage_create_index}
 	    ;;
-	 run|cron)
+	 run-cron)
 	    errmsg ${wa_admin_usage_run_cron}
 	    ;;
 	 add)
