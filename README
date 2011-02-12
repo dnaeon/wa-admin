@@ -8,6 +8,11 @@ just a few hours work, trying to get my logs being added to webalizer in a simpl
 
 So, to install wa-admin, just follow these steps:
 
+Requirements:
+
+   - math/gnuplot
+   - www/webalizer
+
 1. Get the latest wa-admin copy from the Git repository:
   
   $ git clone git://git.unix-heaven.org/public/wa-admin
@@ -64,7 +69,7 @@ So, to install wa-admin, just follow these steps:
 
   To run wa-admin from cron, simply put the following line to your /etc/crontab
 
-  5 *   *   *   *       root   /path/to/wa-admin cron
+  5 *   *   *   *       root   /path/to/wa-admin run-cron
 
   This will run wa-admin every hour and 5 minutes.
 
