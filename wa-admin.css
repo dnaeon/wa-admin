@@ -1,40 +1,47 @@
 body {
-  background	  : #e8e8e8;
+   background	  : #e8e8e8;
 }
 
 table, td {
-  border	  : 5px solid #CCC;
-  border-collapse : collapse;
+   border	  : none;
+   border-collapse: collapse;
+}
+
+tr {
+   border	  : 1px solid #757f85;
 }
 
 tbody tr, td {
-  padding	  :5px 10px;
-  color           : #666;
+   padding	  :5px 10px;
+   color          : #666;
 }
 
 tbody tr:hover {
-  background      : #AAA;
+   background     : #AAA;
 }
 
 tbody tr:hover td {
-  color           : #454545;
+   color          : #454545;
 }
 
 caption {
-  text-align      : left;
-  font-size       : 120%;
-  padding         : 10px 0;
-  color           : #666;
+   text-align     : left;
+   font-size      : 120%;
+   padding        : 10px 0;
+   color          : #666;
 }
 
 table a:link {
-	color     : #666;
+   color	  : #666;
 }
 
 table a:visited {
-	color     : #666;
+   color	  : #666;
 }
 table a:hover {
-	color     : #003366;
+   color	  : #003366;
 }
 
+img:hover {
+   border	  : 2px solid #757f85;
+}
