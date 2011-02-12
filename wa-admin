@@ -143,7 +143,7 @@ function wa_admin_add() {
    logfile=$( ${BASENAME} ${vhost[1]} )
 
    # check if the log file is already added to wa-admin
-   ${GREP} -m 1 "${vhost[0]} ${vhost[1]}" ${wa_admin_vhosts} 1> /dev/null 2>&1
+   ${GREP} -m 1 -E "^${vhost[0]} ${vhost[1]}" ${wa_admin_vhosts} 1> /dev/null 2>&1
 
    [ $? -eq 0 ] && errmsg "==>> LogFile ${vhost[1]} is already added for host ${vhost[0]}."
 
@@ -176,7 +176,7 @@ function wa_admin_delete() {
    vhost=( $@ )
    logfile=$( ${BASENAME} ${vhost[1]} )
    
-   vhost_entry=$( ${GREP} -m 1 "${vhost[0]} ${vhost[1]}" ${wa_admin_vhosts} )
+   vhost_entry=$( ${GREP} -m 1 -E "^${vhost[0]} ${vhost[1]}" ${wa_admin_vhosts} )
  
    [ $? -ne 0 -o -z "${vhost_entry}" ] && errmsg "==>> LogFile ${logfile} for host ${vhost[0]} was not found."
 
@@ -261,7 +261,7 @@ __EOF__
       # monthly_stats[7] == logfile last day
       # monthly_stats[8] == monthly pages
       # monthly_stats[9] == monthy visits
-      monthly_stats=( $( ${GREP} -m 1 "${month_year}" ${vhost_conf_dir}/${webalizer_hist} ) )
+      monthly_stats=( $( ${GREP} -m 1 -E "^${month_year}" ${vhost_conf_dir}/${webalizer_hist} ) )
 
       # if we do not have stats for this month, zero the monthly stats array
       [ ${#monthly_stats[@]} -eq 0 ] && monthly_stats=( 0 0 0 0 0 0 0 0 0 0 )
@@ -384,7 +384,7 @@ function update_overview_graphs() {
       # see in wa_admin_create_index() for information of the fields in webalizer.hist
       month_year=$( ${PRINTF} "%d %d" $( ${DATE} "+%m %Y" ) )
 
-      day_first_last=( $( ${GREP} -m 1 "${month_year}" ${vhost_conf_dir}/${webalizer_hist} | ${CUT} -d ' ' -f 7,8 ) )
+      day_first_last=( $( ${GREP} -m 1 -E "^${month_year}" ${vhost_conf_dir}/${webalizer_hist} | ${CUT} -d ' ' -f 7,8 ) )
       daily_hits[${count}]=$(( ${monthly_hits} / ( ${day_first_last[1]} - ${day_first_last[0]} + 1 ) ))
 
       # initial setup of the daily stats file, if needed
@@ -424,7 +424,7 @@ function update_overview_graphs() {
 	 vhost_conf_dir=${wa_admin_doc_root}/${vhost_name[${vhost_entry}]}/$( ${BASENAME} ${vhost_log[${vhost_entry}]} )
 
 	 # get the monthly hits
-	 monthly_hits=$( ${GREP} -m 1 "${i} ${year}" ${vhost_conf_dir}/${webalizer_hist} | ${CUT} -d ' ' -f 3 )
+	 monthly_hits=$( ${GREP} -m 1 -E "^${i} ${year}" ${vhost_conf_dir}/${webalizer_hist} | ${CUT} -d ' ' -f 3 )
 	 
 	 # test the monthly_hits value for null string
 	 [ -z ${monthly_hits} ] && monthly_hits=0
@@ -508,7 +508,7 @@ function update_rank_stats() {
       month_year=$( ${PRINTF} "%d %d" $( ${DATE} "+%m %Y" ) )
 
       # get the monthly hits
-      monthly_hits=( $( ${GREP} -m 1 "${month_year}" ${vhost_conf_dir}/${webalizer_hist} | ${CUT} -d ' ' -f 3 ) )
+      monthly_hits=( $( ${GREP} -m 1 -E "^${month_year}" ${vhost_conf_dir}/${webalizer_hist} | ${CUT} -d ' ' -f 3 ) )
 
       # if we do not have stats for this month, zero the monthly_hits variable
       [ -z "${monthly_hits}" ] && monthly_hits=0
