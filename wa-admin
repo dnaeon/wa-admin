@@ -248,7 +248,7 @@ __EOF__
       vhost_conf_dir=${wa_admin_doc_root}/${vhost[0]}/${logfile}
 
       # get the current month and year
-      month_year=$( ${PRINTF} "%d %d" $( ${DATE} "+%m %Y" ) )
+      month_year=$( echo $( ${DATE} "+%m %Y" ) | ${SED} -e 's/^0*//' )
 
       # get the monthly stats from the history file of webalizer
       # monthly_stats[0] == month
@@ -448,7 +448,7 @@ function update_rank_stats() {
       vhost_conf_dir=${wa_admin_doc_root}/${vhost[0]}/${logfile}
 
       # get the current month and year
-      month_year=$( ${PRINTF} "%d %d" $( ${DATE} "+%m %Y" ) )
+      month_year=$( echo $( ${DATE} "+%m %Y" ) | ${SED} -e 's/^0*//' )
 
       # get the monthly hits
       monthly_hits=( $( ${GREP} -m 1 -E "^${month_year}" ${vhost_conf_dir}/${webalizer_hist} | ${CUT} -d ' ' -f 3 ) )
