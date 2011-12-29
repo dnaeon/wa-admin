@@ -1,5 +1,5 @@
-wa-admin README.
-################
+wa-admin - a tool for managing webalizer Apache vhosts
+======================================================
 
 This file just contains some basic instructions to get wa-admin running on your box.
 
@@ -10,79 +10,78 @@ So, to install wa-admin, just follow these steps:
 
 Requirements:
 
-   - math/gnuplot
-   - www/webalizer
+* math/gnuplot
+* www/webalizer
 
 1. Get the latest wa-admin copy from the Git repository:
   
-  $ git clone git://git.unix-heaven.org/public/wa-admin
+	$ git clone git://github.com/dnaeon/wa-admin.git
   
 2. Create the needed directories:
 
-  $ sudo mkdir -p /usr/local/www/wa-admin
-  $ sudo mkdir -p /usr/local/etc/wa-admin
+	$ sudo mkdir -p /usr/local/www/wa-admin
+	$ sudo mkdir -p /usr/local/etc/wa-admin
 
 3. Copy the template files and configuration
 
-  $ sudo cp wa-admin/wa-admin.css /usr/local/www/wa-admin/
-  $ sudo cp wa-admin/*.html /usr/local/etc/wa-admin/
-  $ sudo cp wa-admin/webalizer.conf.tpl /usr/local/etc/wa-admin/
+	$ sudo cp wa-admin/wa-admin.css /usr/local/www/wa-admin/
+	$ sudo cp wa-admin/*.html /usr/local/etc/wa-admin/
+	$ sudo cp wa-admin/webalizer.conf.tpl /usr/local/etc/wa-admin/
   
-4. Edit /usr/local/etc/wa-admin/webalizer.conf.tpl
+4. Edit `/usr/local/etc/wa-admin/webalizer.conf.tpl`
 
-  This is a just a template file, which is an actual webalizer.conf file.
+This is a just a template file, which is an actual webalizer.conf file.
 
-  Just edit it and add/remove what you need or what you don't.
+Just edit it and add/remove what you need or what you don't.
 
-  One thing to keep in mind is to leave the following options as they are,
-  since they are being used by the wa-admin tool to prepare the template for the vhost:
+One thing to keep in mind is to leave the following options as they are,
+since they are being used by the wa-admin tool to prepare the template for the vhost:
 
-	- LogFile
-	- HostName
-	- OutputDir
-	- DNSCache
+* LogFile
+* HostName
+* OutputDir
+* DNSCache
   
-  If you do not want DNS reverse lookups, just comment the corresponding DNS lines from
-  the template file.
+If you do not want DNS reverse lookups, just comment the corresponding DNS lines from
+the template file.
 
 5. Add the hosts with their log files
 
-  To add new log files to be analyzed by webalizer, just do the following:
+To add new log files to be analyzed by webalizer, just do the following:
 
-  $ sudo touch /usr/local/etc/wa-admin/wa-admin.vhosts
+	$ sudo touch /usr/local/etc/wa-admin/wa-admin.vhosts
   
-  Please, note that the above is needed to be run only once - the first time 
-  you install wa-admin.
+Please, note that the above is needed to be run only once - the first time 
+you install wa-admin.
 
-  Now to add a new log file, just do the following:
+Now to add a new log file, just do the following:
 
-  $ sudo wa-admin add <hostname> <path-to-log-file>
+	$ sudo wa-admin add <hostname> <path-to-log-file>
 
-  Just repeat the above command for all hosts and log files, until ready.
+Just repeat the above command for all hosts and log files, until ready.
 
 6. Modify Apache
 
-  You will need to modify Apache configuration, so that it
-  finds the wa-admin DocumentRoot, which currently defaults to /usr/local/www/wa-admin
+You will need to modify Apache configuration, so that it
+ finds the wa-admin DocumentRoot, which currently defaults to `/usr/local/www/wa-admin`
 
-7. Run wa-admin from cron
+7. Run `wa-admin` from cron
 
-  To run wa-admin from cron, simply put the following line to your /etc/crontab
+To run wa-admin from cron, simply put the following line to your /etc/crontab
 
-  5 *   *   *   *       root   /path/to/wa-admin run-cron
+	5 *   *   *   *       root   /path/to/wa-admin run-cron
 
-  This will run wa-admin every hour and 5 minutes.
+This will run wa-admin every hour and 5 minutes.
 
 8. When ready execute wa-admin run
 
-  $ sudo wa-admin run
+	$ sudo wa-admin run
 
-  This will go through all added to wa-admin vhosts and create the graphs
+This will go through all added to wa-admin vhosts and create the graphs
 
-  It might take some time, until it finishes, if you are running with the DNS
-  resolver settings for webalizer. 
+It might take some time, until it finishes, if you are running with the DNS
+resolver settings for webalizer. 
 
 9. Check your graphs! :)
 
-  Now open up a browser and go to your wa-admin Apache vhost.
-
+Now open up a browser and go to your wa-admin Apache vhost.
