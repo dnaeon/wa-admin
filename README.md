@@ -13,22 +13,26 @@ Requirements:
 * math/gnuplot
 * www/webalizer
 
-1. Get the latest wa-admin copy from the Git repository:
+Get the latest wa-admin copy from the Git repository:
+-----------------------------------------------------
   
 	$ git clone git://github.com/dnaeon/wa-admin.git
   
-2. Create the needed directories:
+Create the needed directories:
+------------------------------
 
 	$ sudo mkdir -p /usr/local/www/wa-admin
 	$ sudo mkdir -p /usr/local/etc/wa-admin
 
-3. Copy the template files and configuration
+Copy the template files and configuration
+-----------------------------------------
 
 	$ sudo cp wa-admin/wa-admin.css /usr/local/www/wa-admin/
 	$ sudo cp wa-admin/*.html /usr/local/etc/wa-admin/
 	$ sudo cp wa-admin/webalizer.conf.tpl /usr/local/etc/wa-admin/
   
-4. Edit `/usr/local/etc/wa-admin/webalizer.conf.tpl`
+Edit `/usr/local/etc/wa-admin/webalizer.conf.tpl`
+-------------------------------------------------
 
 This is a just a template file, which is an actual webalizer.conf file.
 
@@ -45,7 +49,8 @@ since they are being used by the wa-admin tool to prepare the template for the v
 If you do not want DNS reverse lookups, just comment the corresponding DNS lines from
 the template file.
 
-5. Add the hosts with their log files
+Add the hosts with their log files
+----------------------------------
 
 To add new log files to be analyzed by webalizer, just do the following:
 
@@ -60,12 +65,14 @@ Now to add a new log file, just do the following:
 
 Just repeat the above command for all hosts and log files, until ready.
 
-6. Modify Apache
+Modify Apache
+-------------
 
 You will need to modify Apache configuration, so that it
  finds the wa-admin DocumentRoot, which currently defaults to `/usr/local/www/wa-admin`
 
-7. Run `wa-admin` from cron
+Run `wa-admin` from cron
+------------------------
 
 To run wa-admin from cron, simply put the following line to your /etc/crontab
 
@@ -73,7 +80,8 @@ To run wa-admin from cron, simply put the following line to your /etc/crontab
 
 This will run wa-admin every hour and 5 minutes.
 
-8. When ready execute wa-admin run
+When ready execute wa-admin run
+-------------------------------
 
 	$ sudo wa-admin run
 
@@ -82,6 +90,7 @@ This will go through all added to wa-admin vhosts and create the graphs
 It might take some time, until it finishes, if you are running with the DNS
 resolver settings for webalizer. 
 
-9. Check your graphs! :)
+Check your graphs! :)
+---------------------
 
 Now open up a browser and go to your wa-admin Apache vhost.
